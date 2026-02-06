@@ -8,74 +8,75 @@ require_once "config.php";
 $pageTitle = "Registro de Grupos";
 $current = "grupos_registro";
 
-$CAREERS = [
-  // Sociales y Administrativas
-  "Administración de Empresas" => "AE",
-  "Administración de Empresas Turísticas" => "AET",
-  "Relaciones Internacionales" => "RI",
-  "Contaduría Pública y Finanzas" => "CPF",
-  "Derecho" => "DER",
-  "Mercadotecnia y Publicidad" => "MYP",
-  "Gastronomía" => "GAST",
-  "Periodismo y Ciencias de la Comunicación" => "PCC",
-  "Informática Administrativa y Fiscal" => "IAF",
-  // Educación y Humanidades
-  "Pedagogía" => "PED",
-  "Cultura Física y Educación del Deporte" => "CFED",
-  "Idiomas (Inglés y Francés)" => "IF",
-  // Ingeniería y Tecnología
-  "Diseño Gráfico" => "DG",
-  "Diseño de Interiores" => "DINT",
-  "Diseño de Modas" => "DMOD",
-  "Ingeniería en Sistemas Computacionales" => "ISC",
-  "Ingeniería Mecánica Automotriz" => "IMA",
-  "Ingeniero Arquitecto" => "IARQ",
-  "Ingeniería en Logística y Transporte" => "ILT",
-  // Salud
-  "Psicología" => "PSI"
-];
-
 $success = "";
 $error = "";
+
+/* SOLO CARRERAS ACTIVAS */
+$carreras = $pdo->query("
+  SELECT nombre, sigla
+  FROM carreras
+  WHERE activo = 1
+  ORDER BY nombre ASC
+")->fetchAll();
+
+/* SOLO TURNOS ACTIVOS */
+$turnos = $pdo->query("
+  SELECT nombre, inicial
+  FROM turnos
+  WHERE activo = 1
+  ORDER BY nombre ASC
+")->fetchAll();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $carrera = trim($_POST["carrera"] ?? "");
   $turno = trim($_POST["turno"] ?? "");
   $grado = (int)($_POST["grado"] ?? 0);
 
-  if ($carrera === "" || $turno === "" || $grado < 1 || $grado > 11 || !isset($CAREERS[$carrera])) {
-    $error = "Verifica carrera, turno y grado.";
+  if ($carrera === "" || $turno === "" || $grado < 1 || $grado > 11) {
+    $error = "Verifica los datos.";
   } else {
-    $sigla = $CAREERS[$carrera];
-    $turnoInicial = ($turno === "Matutino") ? "M" : "V";
 
-    // Buscar último consecutivo existente para esa combinación.
-    // AJUSTA nombre de tabla/columnas si tu BD usa otros.
-    $stmt = $pdo->prepare("
-      SELECT consecutivo
-      FROM grupos
-      WHERE carrera_sigla = ? AND grado = ? AND turno = ?
-      ORDER BY consecutivo DESC
-      LIMIT 1
-    ");
-    $stmt->execute([$sigla, $grado, $turno]);
-    $row = $stmt->fetch();
+    // validar carrera activa + obtener sigla
+    $stmtC = $pdo->prepare("SELECT sigla FROM carreras WHERE nombre = ? AND activo = 1 LIMIT 1");
+    $stmtC->execute([$carrera]);
+    $cRow = $stmtC->fetch();
 
-    $nextConsec = $row ? ((int)$row["consecutivo"] + 1) : 1;
-    $consec2 = str_pad((string)$nextConsec, 2, "0", STR_PAD_LEFT);
+    // validar turno activo + obtener inicial
+    $stmtT = $pdo->prepare("SELECT inicial FROM turnos WHERE nombre = ? AND activo = 1 LIMIT 1");
+    $stmtT->execute([$turno]);
+    $tRow = $stmtT->fetch();
 
-    // Código: SIGLA + GRADO + CONSEC2 + "-" + TurnoInicial
-    // Ej: ISC + 8 + 01 + -V  => ISC801-V
-    $codigo = $sigla . $grado . $consec2 . "-" . $turnoInicial;
+    if (!$cRow || !$tRow) {
+      $error = "Carrera o turno inactivo.";
+    } else {
+      $sigla = $cRow["sigla"];
+      $turnoInicial = $tRow["inicial"];
 
-    // Insertar grupo
-    $ins = $pdo->prepare("
-      INSERT INTO grupos (carrera, carrera_sigla, turno, grado, consecutivo, codigo)
-      VALUES (?, ?, ?, ?, ?, ?)
-    ");
-    $ins->execute([$carrera, $sigla, $turno, $grado, $nextConsec, $codigo]);
+      // Buscar último consecutivo
+      $stmt = $pdo->prepare("
+        SELECT consecutivo
+        FROM grupos
+        WHERE carrera_sigla = ? AND grado = ? AND turno = ?
+        ORDER BY consecutivo DESC
+        LIMIT 1
+      ");
+      $stmt->execute([$sigla, $grado, $turno]);
+      $row = $stmt->fetch();
 
-    $success = "Grupo registrado: {$codigo}";
+      $nextConsec = $row ? ((int)$row["consecutivo"] + 1) : 1;
+      $consec2 = str_pad((string)$nextConsec, 2, "0", STR_PAD_LEFT);
+
+      $codigo = $sigla . $grado . $consec2 . "-" . $turnoInicial;
+
+      // Insertar grupo (activo = 1)
+      $ins = $pdo->prepare("
+        INSERT INTO grupos (carrera, carrera_sigla, turno, grado, consecutivo, codigo, activo)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+      ");
+      $ins->execute([$carrera, $sigla, $turno, $grado, $nextConsec, $codigo]);
+
+      $success = "Grupo registrado: {$codigo}";
+    }
   }
 }
 
@@ -86,7 +87,6 @@ require_once "partials/header.php";
   <div class="col-lg-7">
     <div class="card card-soft p-4">
       <h4 class="mb-1">Registro de grupos</h4>
-      <p class="text-secondary mb-4">Selecciona carrera, turno y grado. El <b>grupo se genera solo</b> y respeta consecutivos.</p>
 
       <?php if ($success): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
@@ -100,19 +100,23 @@ require_once "partials/header.php";
           <label class="form-label">Carrera</label>
           <select class="form-select" name="carrera" id="carrera" required>
             <option value="" selected disabled>Selecciona…</option>
-            <?php foreach ($CAREERS as $name => $sig): ?>
-              <option value="<?= htmlspecialchars($name) ?>"><?= htmlspecialchars($name) ?></option>
+            <?php foreach ($carreras as $c): ?>
+              <option value="<?= htmlspecialchars($c["nombre"]) ?>">
+                <?= htmlspecialchars($c["nombre"]) ?>
+              </option>
             <?php endforeach; ?>
           </select>
-          <small class="muted">La sigla se toma de tu catálogo interno (ej. Ingeniería en Sistemas Computacionales → ISC).</small>
         </div>
 
         <div class="col-md-6">
           <label class="form-label">Turno</label>
           <select class="form-select" name="turno" id="turno" required>
             <option value="" selected disabled>Selecciona…</option>
-            <option>Matutino</option>
-            <option>Vespertino</option>
+            <?php foreach ($turnos as $t): ?>
+              <option value="<?= htmlspecialchars($t["nombre"]) ?>">
+                <?= htmlspecialchars($t["nombre"]) ?>
+              </option>
+            <?php endforeach; ?>
           </select>
         </div>
 
@@ -129,7 +133,6 @@ require_once "partials/header.php";
         <div class="col-12">
           <label class="form-label">Vista previa del grupo</label>
           <input type="text" class="form-control" id="preview" value="—" readonly>
-          <small class="muted">El consecutivo final (01,02,03...) lo confirma el servidor al registrar.</small>
         </div>
 
         <div class="col-12 d-flex gap-2">
@@ -139,18 +142,14 @@ require_once "partials/header.php";
       </form>
     </div>
   </div>
-
- 
-
-      <hr>
-
-      
-    </div>
-  </div>
 </div>
 
 <script>
-  const careers = <?= json_encode($CAREERS, JSON_UNESCAPED_UNICODE) ?>;
+  // Carreras activas con su sigla (desde BD)
+  const careers = <?= json_encode(array_column($carreras, 'sigla', 'nombre'), JSON_UNESCAPED_UNICODE) ?>;
+
+  // Turnos activos con su inicial (desde BD)
+  const turnos = <?= json_encode(array_column($turnos, 'inicial', 'nombre'), JSON_UNESCAPED_UNICODE) ?>;
 
   function buildPreview(){
     const carrera = document.getElementById('carrera').value;
@@ -158,13 +157,12 @@ require_once "partials/header.php";
     const grado = document.getElementById('grado').value;
     const preview = document.getElementById('preview');
 
-    if(!carrera || !turno || !grado || !careers[carrera]){
+    if(!carrera || !turno || !grado || !careers[carrera] || !turnos[turno]){
       preview.value = "—";
       return;
     }
     const sigla = careers[carrera];
-    const t = (turno === "Matutino") ? "M" : "V";
-    // El consecutivo real lo calcula el server; aquí mostramos 01 como referencia.
+    const t = turnos[turno];
     preview.value = `${sigla}${grado}01-${t}`;
   }
 

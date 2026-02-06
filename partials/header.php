@@ -21,11 +21,49 @@ $current = $current ?? "";
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
+
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav ms-auto">
-        <li class="nav-item"><a class="nav-link <?= $current==='alumnos_registro'?'active':'' ?>" href="alumnos_registro.php">Registro Alumnos</a></li>
-        <li class="nav-item"><a class="nav-link <?= $current==='grupos_registro'?'active':'' ?>" href="grupos_registro.php">Registro Grupos</a></li>
-        <li class="nav-item"><a class="nav-link <?= $current==='alumnos_lista'?'active':'' ?>" href="alumnos_lista.php">Alumnos Registrados</a></li>
+
+        <li class="nav-item">
+          <a class="nav-link <?= $current==='alumnos_registro'?'active':'' ?>"
+             href="alumnos_registro.php">Registro Alumnos</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link <?= $current==='grupos_registro'?'active':'' ?>"
+             href="grupos_registro.php">Registro Grupos</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link <?= $current==='alumnos_lista'?'active':'' ?>"
+             href="alumnos_lista.php">Alumnos Registrados</a>
+        </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle <?= in_array($current, ['carreras_admin','turnos_admin','grupos_admin']) ? 'active' : '' ?>"
+             href="#"
+             role="button"
+             data-bs-toggle="dropdown"
+             aria-expanded="false">
+            Administración
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item <?= $current==='carreras_admin'?'active':'' ?>"
+                 href="carreras_admin.php">Carreras</a>
+            </li>
+            <li>
+              <a class="dropdown-item <?= $current==='turnos_admin'?'active':'' ?>"
+                 href="turnos_admin.php">Turnos</a>
+            </li>
+            <li>
+              <a class="dropdown-item <?= $current==='grupos_admin'?'active':'' ?>"
+                 href="grupos_admin.php">Grupos</a>
+            </li>
+          </ul>
+        </li>
+
       </ul>
     </div>
   </div>
