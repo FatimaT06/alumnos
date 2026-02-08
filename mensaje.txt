@@ -1,1 +1,40 @@
 Bienvenido
+
+Descarga Composer si no lo tienes:
+    https://getcomposer.org
+
+Configuración de PHP en Windows
+    Agrega PHP al PATH del sistema:
+        Panel de control -> Sistema y seguridad -> Sistema -> Configuración avanzada del sistema -> Variables de entorno
+        En Variables del sistema:
+            Selecciona Path:
+            Editar
+            Nuevo
+            Agrega la ruta:
+            C:\xampp\php
+            Aceptar todos los cambios
+
+    Habilitar extensión ZIP en PHP:
+        Abre el archivo:
+        C:\xampp\php\php.ini
+        Busca la línea:
+        ;extension=zip
+        Cámbiala por:
+        extension=zip
+        Guarda el archivo
+
+Pasos para ejecutar el proyecto
+Paso 1
+    Después de clonar el repositorio y tener los requisitos instalados, accede a la carpeta del repositorio desde PowerShell.
+
+Paso 2
+    Ejecuta el siguiente comando para instalar las dependencias:
+        composer install
+
+Paso 3
+    Cuando termine la instalación, ejecuta el servidor local:
+        php -S localhost:8080 -t public
+
+Paso 4
+    Abre el navegador y accede a la siguiente dirección:
+        http://localhost:8080
